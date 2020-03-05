@@ -255,6 +255,46 @@ static long long mstime(void) {
     return mst;
 }
 
+//#include <math.h>
+
+#define pi 3.14159265358979323846
+
+double deg2rad(double);
+double rad2deg(double);
+
+double distance(double lat1, double lon1, double lat2, double lon2, char unit) {
+  double theta, dist;
+  if ((lat1 == lat2) && (lon1 == lon2)) {
+    return 0.0;
+  }
+  else {
+    theta = lon1 - lon2;
+    dist = sin(deg2rad(lat1)) * sin(deg2rad(lat2)) + cos(deg2rad(lat1)) * cos(deg2rad(lat2)) * cos(deg2rad(theta));
+    dist = acos(dist);
+    dist = rad2deg(dist);
+    dist = dist * 60.0 * 1.1515;
+    switch(unit) {
+      case 'M':
+        break;
+      case 'K':
+        dist = dist * 1.609344;
+        break;
+      case 'N':
+        dist = dist * 0.8684;
+        break;
+    }
+    return (dist);
+  }
+}
+
+double deg2rad(double deg) {
+  return (deg * pi / 180.0);
+}
+
+double rad2deg(double rad) {
+  return (rad * 180.0 / pi);
+}
+
 /* =============================== Initialization =========================== */
 
 void modesInitConfig(void) {
@@ -1825,13 +1865,13 @@ void interactiveShowData(void) {
     progress[time(NULL)%3] = '.';
     progress[3] = '\0';
 
-    printf("\x1b[H\x1b[2J");    /* Clear the screen */
-    printf(
-"Hex    Flight   Altitude  Speed   Lat       Lon       Track  Messages Seen %s\n"
-"--------------------------------------------------------------------------------\n",
+    printf("\e[H\e[2J");    /* Clear the screen */
+    printf("Hex    Flight   Altitude  Speed   Lat       Lon       Track  Messages Seen %s\n"
+           "--------------------------------------------------------------------------------\n",
         progress);
 
     while(a && count < Modes.interactive_rows) {
+        char linkBuf[128];
         int altitude = a->altitude, speed = a->speed;
 
         /* Convert units to metric if --metric was specified. */
@@ -1839,9 +1879,16 @@ void interactiveShowData(void) {
             altitude /= 3.2828;
             speed *= 1.852;
         }
+        
+        // Create a flightaware link to the flight number if available.  Blank the flight
+        // column if the flight number is not available.  Format the hotlink to fit the column
+        //
+        strcpy(linkBuf, "        ");
+        if (strlen(a->flight) > 0)
+            sprintf(linkBuf, "\e]8;;https://flightaware.com/live/flight/%s\e\\%-8s\e]8;;\e\\", a->flight, a->flight);
 
-        printf("%-6s %-8s %-9d %-7d %-7.03f   %-7.03f   %-3d   %-9ld %d sec\n",
-            a->hexaddr, a->flight, altitude, speed,
+        printf("%-6s %s %-9d %-7d % 7.03f   % 8.03f  %-3d    %-8ld %2d sec\n",
+            a->hexaddr, linkBuf, altitude, speed,
             a->lat, a->lon, a->track, a->messages,
             (int)(now - a->seen));
         a = a->next;
